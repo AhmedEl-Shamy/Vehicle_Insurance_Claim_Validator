@@ -5,7 +5,7 @@ from images_model import ImagesModel
 
 class InputsAnalysisModule:
     def __init__(
-            self, 
+            self,
             invoice_model: InvoiceModel,
             police_model: PoliceReportModel,
             user_description_model: UserDescriptionModel,
@@ -17,4 +17,12 @@ class InputsAnalysisModule:
         self.images_model = images_model
 
     def extract_information(self, images, description, invoice, police_report) -> dict:
-        pass
+        info = {
+            'image_pipeline' : self.images_model.extract_information(images=images),
+            'user_description_pipeline': self.user_description_model.extract_information(
+                user_description=description
+            ),
+            'invoice_pipeline': self.invoice_model.extract_information(invoice=invoice),
+            'police_report_pipeline': self.police_model.extract_information(report=police_report),
+        }
+        return info
