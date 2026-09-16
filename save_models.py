@@ -1,0 +1,3 @@
+from modules.inputs_analysis_module.user_description_model import UserDescriptionModel
+
+UserDescriptionModel.save_model()
