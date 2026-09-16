@@ -46,7 +46,7 @@ OperationType = Literal["Replace", "Repair","Refinish", "Blend", "Not Specified"
 ALLOWED_CAR_PARTS = set(CarPart.__args__)
 
 # ============================================================
-# 2. SCHEMAS (NO CHANGES)
+# 2. SCHEMAS 
 # ============================================================
 class ExtractedCarInfo(BaseModel):
     car_make: Optional[str] = Field(None, description="Vehicle Make (e.g. Toyota, Dodge).")
@@ -141,7 +141,7 @@ class CleanInvoiceExtraction(BaseModel):
         return self
 
 # ============================================================
-# 3. PROMPT GENERATION (NO CHANGES)
+# 3. PROMPT GENERATION 
 # ============================================================
 SCHEMA_STR = json.dumps(CleanInvoiceExtraction.model_json_schema(), indent=2)
 
@@ -294,6 +294,7 @@ class InvoiceModel:
 # # ============================================================
 # if __name__ == "__main__":
 #     API_KEY = "YOUR_GEMINI_API_KEY"
+#     API_KEY = "AQ.Ab8RN6J0Dphy_bRfVE1MSuosATvxv9WUqa94N-rZ9AYcSlYTyQ"
 #     model = InvoiceModel(api_key=API_KEY)
 #     file_path = "path/to/invoice.jpg"
     
