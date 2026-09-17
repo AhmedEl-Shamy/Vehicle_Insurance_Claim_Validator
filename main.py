@@ -18,5 +18,6 @@ async def extract_description(inputs: UserInputsSchema):
     inputs_dict = inputs.model_dump()
     model = UserDescriptionModel.load_model()
     json_str = model.extract_information(description=inputs_dict["description"])
+    print (f"\n\n{json_str}\n\n")
     response = json.loads(json_str)
     return response

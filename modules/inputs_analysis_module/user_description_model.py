@@ -75,7 +75,7 @@ class UserDescriptionModel:
         inputs = self.prepareChatTemplate(description=description)
         generated_ids = self.model.generate(
             **inputs,
-            max_new_tokens=1024,
+            max_new_tokens=4096,
             do_sample=False
         )
         generated_ids = generated_ids[:, inputs['input_ids'].shape[1]:]
