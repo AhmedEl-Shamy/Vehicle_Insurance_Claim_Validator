@@ -1,5 +1,6 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from assets.pydantic_schema.user_description_info_shcema import UserDescriptionInfoSchema
+from json_repair import repair_json
 import re
 
 class UserDescriptionModel:
@@ -96,4 +97,5 @@ class UserDescriptionModel:
     def extract_information(self, description: str) -> str:
         response = self.generateResponse(description=description)
         json_str = self.extract_response(response)
+        json_str = repair_json(json_str)
         return json_str
