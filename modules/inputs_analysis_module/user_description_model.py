@@ -11,18 +11,26 @@ class UserDescriptionModel:
 
     @staticmethod
     def save_model(model_name: str="Qwen/Qwen2.5-1.5B-Instruct"):
-        model = AutoModelForCausalLM.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype="auto",
+            device_map="auto"
+        )
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model.save_pretrained(UserDescriptionModel.LOCAL_MODEL_PATH)
         tokenizer.save_pretrained(UserDescriptionModel.LOCAL_MODEL_PATH)
 
     @classmethod
     def load_model(cls):
-        model = AutoModelForCausalLM.from_pretrained(cls.LOCAL_MODEL_PATH)
+        model = AutoModelForCausalLM.from_pretrained(
+            cls.LOCAL_MODEL_PATH,
+            torch_dtype="auto",
+            device_map="auto"
+        )
         tokenizer = AutoTokenizer.from_pretrained(cls.LOCAL_MODEL_PATH)
         return cls(model=model, tokenizer=tokenizer)
 
-    def getPromptMessages(accidentDescription: str):
+    def getPromptMessages(self, accident_description: str):
         return [
             {
                 "role": "system",
@@ -38,7 +46,7 @@ class UserDescriptionModel:
                 "role": "user",
                 "content": '\n'.join([
                     "## Accident Description",
-                    accidentDescription,
+                    accident_description,
                 ])
             }
         ]
@@ -54,7 +62,7 @@ class UserDescriptionModel:
         }
 
         inputs = self.tokenizer.apply_chat_template(
-            self.getPromptMessages(accidentDescription=description),
+            self.getPromptMessages(accident_description=description),
             tools=[data_extraction_tool],
             add_generation_prompt=True,
             return_dict=True,
@@ -70,6 +78,7 @@ class UserDescriptionModel:
             max_new_tokens=1024,
             do_sample=False
         )
+        generated_ids = generated_ids[:, inputs['input_ids'].shape[1]:]
         response = self.tokenizer.batch_decode(
             generated_ids,
             skip_special_tokens=True
