@@ -15,10 +15,26 @@ class ImageDetectionSegmentation:
     It does not train or retrain models.
     """
 
+    # =====================================================
+    # MODEL PATHS
+    # =====================================================
+
+    DAMAGE_MODEL_PATH = (
+        "assets/ai_models/damage_detection/best.pt"
+    )
+
+    SEGMENTATION_MODEL_PATH = (
+        "assets/ai_models/segmentation/best.pt"
+    )
+
+    # =====================================================
+    # INITIALIZATION
+    # =====================================================
+
     def __init__(
         self,
-        damage_model_path="assets/ai_models/damage_detection/best.pt",
-        segmentation_model_path="assets/ai_models/segmentation/best.pt",
+        damage_model=None,
+        segmentation_model=None,
         device=None,
         damage_confidence=0.25,
         segmentation_confidence=0.25,
@@ -34,13 +50,8 @@ class ImageDetectionSegmentation:
             )
         )
 
-        self.damage_model_path = Path(
-            damage_model_path
-        )
-
-        self.segmentation_model_path = Path(
-            segmentation_model_path
-        )
+        self.damage_model = damage_model
+        self.segmentation_model = segmentation_model
 
         self.damage_confidence = (
             damage_confidence
@@ -50,73 +61,189 @@ class ImageDetectionSegmentation:
             segmentation_confidence
         )
 
-        self.damage_model = None
-        self.segmentation_model = None
+    # =====================================================
+    # SAVE MODEL
+    # =====================================================
 
-        self.load_models()
+    @staticmethod
+    def save_model(
+        model,
+        output_path
+    ):
+        """
+        Save an already loaded YOLO model.
+
+        Parameters:
+            model:
+                Loaded Ultralytics YOLO model.
+
+            output_path:
+                Destination path for the saved model.
+
+        Returns:
+            Path to the saved model.
+        """
+
+        if model is None:
+            raise ValueError(
+                "Model is None. "
+                "Nothing to save."
+            )
+
+        output_path = Path(
+            output_path
+        )
+
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        try:
+
+            model.save(
+                str(output_path)
+            )
+
+        except AttributeError:
+
+            raise RuntimeError(
+                "The provided model does not "
+                "support the save() method."
+            )
+
+        return output_path
 
     # =====================================================
     # LOAD MODELS
     # =====================================================
-    def load_models(self):
+
+    @classmethod
+    def load_model(
+        cls,
+        damage_model_path=None,
+        segmentation_model_path=None,
+        device=None,
+        damage_confidence=0.25,
+        segmentation_confidence=0.25,
+    ):
         """
-        Load the already-trained checkpoints.
+        Load the trained damage-detection and
+        vehicle-part-segmentation models.
+
+        Returns:
+            A ready-to-use ImageDetectionSegmentation instance.
         """
 
-        if not self.damage_model_path.exists():
+        damage_model_path = Path(
+            damage_model_path
+            if damage_model_path is not None
+            else cls.DAMAGE_MODEL_PATH
+        )
+
+        segmentation_model_path = Path(
+            segmentation_model_path
+            if segmentation_model_path is not None
+            else cls.SEGMENTATION_MODEL_PATH
+        )
+
+        # -------------------------------------------------
+        # Check damage model
+        # -------------------------------------------------
+
+        if not damage_model_path.exists():
+
             raise FileNotFoundError(
-                f"Damage model not found: "
-                f"{self.damage_model_path}"
+                "Damage model not found: "
+                f"{damage_model_path}"
             )
 
-        if not self.segmentation_model_path.exists():
+        # -------------------------------------------------
+        # Check segmentation model
+        # -------------------------------------------------
+
+        if not segmentation_model_path.exists():
+
             raise FileNotFoundError(
-                f"Segmentation model not found: "
-                f"{self.segmentation_model_path}"
+                "Segmentation model not found: "
+                f"{segmentation_model_path}"
             )
 
-        # Damage detection model
-        self.damage_model = YOLO(
-            str(self.damage_model_path)
+        # -------------------------------------------------
+        # Load damage model
+        # -------------------------------------------------
+
+        damage_model = YOLO(
+            str(damage_model_path)
         )
 
         print(
             "✅ Damage model loaded:",
-            self.damage_model_path
+            damage_model_path
         )
 
-        # Vehicle part segmentation model
-        self.segmentation_model = YOLO(
-            str(self.segmentation_model_path)
+        # -------------------------------------------------
+        # Load segmentation model
+        # -------------------------------------------------
+
+        segmentation_model = YOLO(
+            str(segmentation_model_path)
         )
 
         print(
             "✅ Segmentation model loaded:",
-            self.segmentation_model_path
+            segmentation_model_path
+        )
+
+        # -------------------------------------------------
+        # Device
+        # -------------------------------------------------
+
+        selected_device = (
+            device
+            if device is not None
+            else (
+                "cuda"
+                if torch.cuda.is_available()
+                else "cpu"
+            )
         )
 
         print(
             "Device:",
-            self.device
+            selected_device
         )
 
-    # =====================================================
-    # SAVE MODELS
-    # =====================================================
-    def save_models(self):
-        """
-        Inference only.
-        Models are loaded from existing checkpoints.
-        """
-        pass
+        # -------------------------------------------------
+        # Return ready instance
+        # -------------------------------------------------
+
+        return cls(
+            damage_model=damage_model,
+            segmentation_model=segmentation_model,
+            device=selected_device,
+            damage_confidence=damage_confidence,
+            segmentation_confidence=segmentation_confidence,
+        )
 
     # =====================================================
     # DAMAGE DETECTION
     # =====================================================
-    def detect_damage(self, image_path):
+
+    def detect_damage(
+        self,
+        image_path
+    ):
         """
         Run damage detection on one image.
         """
+
+        if self.damage_model is None:
+
+            raise RuntimeError(
+                "Damage model is not loaded. "
+                "Call load_model() first."
+            )
 
         result = self.damage_model.predict(
             source=str(image_path),
@@ -147,7 +274,10 @@ class ImageDetectionSegmentation:
                 for v in box.xyxy[0].tolist()
             ]
 
+            # -------------------------------------------------
             # Severity proxy from bbox area
+            # -------------------------------------------------
+
             bbox_area = (
                 max(0.0, x2 - x1)
                 *
@@ -156,7 +286,8 @@ class ImageDetectionSegmentation:
 
             area_ratio = (
                 bbox_area
-                / max(
+                /
+                max(
                     1.0,
                     width * height
                 )
@@ -172,8 +303,11 @@ class ImageDetectionSegmentation:
                 severity = "severe"
 
             detections.append({
+
                 "damage_type": str(
-                    self.damage_model.names[class_id]
+                    self.damage_model.names[
+                        class_id
+                    ]
                 ),
 
                 "confidence": round(
@@ -195,6 +329,7 @@ class ImageDetectionSegmentation:
                     4
                 ),
 
+                # Internal fields
                 "_image_width": int(width),
                 "_image_height": int(height)
             })
@@ -204,10 +339,21 @@ class ImageDetectionSegmentation:
     # =====================================================
     # VEHICLE PART SEGMENTATION
     # =====================================================
-    def segment_parts(self, image_path):
+
+    def segment_parts(
+        self,
+        image_path
+    ):
         """
         Run vehicle-part segmentation.
         """
+
+        if self.segmentation_model is None:
+
+            raise RuntimeError(
+                "Segmentation model is not loaded. "
+                "Call load_model() first."
+            )
 
         result = self.segmentation_model.predict(
             source=str(image_path),
@@ -254,6 +400,7 @@ class ImageDetectionSegmentation:
             ]
 
             parts.append({
+
                 "part_instance_id": index,
 
                 "part": part_name,
@@ -281,8 +428,10 @@ class ImageDetectionSegmentation:
     # =====================================================
     # BBOX HELPERS
     # =====================================================
+
     @staticmethod
     def bbox_area(bbox):
+
         return (
             max(
                 0.0,
@@ -296,7 +445,11 @@ class ImageDetectionSegmentation:
         )
 
     @staticmethod
-    def bbox_intersection(a, b):
+    def bbox_intersection(
+        a,
+        b
+    ):
+
         return (
             max(
                 0.0,
@@ -314,7 +467,10 @@ class ImageDetectionSegmentation:
         )
 
     @staticmethod
-    def bbox_center(bbox):
+    def bbox_center(
+        bbox
+    ):
+
         return (
             (bbox[0] + bbox[2]) / 2,
             (bbox[1] + bbox[3]) / 2
@@ -349,6 +505,7 @@ class ImageDetectionSegmentation:
     # =====================================================
     # POLYGON / MASK
     # =====================================================
+
     @staticmethod
     def rasterize(
         polygon,
@@ -361,12 +518,19 @@ class ImageDetectionSegmentation:
             dtype=np.uint8
         )
 
-        if polygon is not None and len(polygon) >= 3:
+        if (
+            polygon is not None
+            and len(polygon) >= 3
+        ):
 
             points = np.asarray(
                 polygon,
                 dtype=np.int32
-            ).reshape(-1, 1, 2)
+            ).reshape(
+                -1,
+                1,
+                2
+            )
 
             cv2.fillPoly(
                 mask,
@@ -379,14 +543,20 @@ class ImageDetectionSegmentation:
     # =====================================================
     # DAMAGE -> PART MATCHING
     # =====================================================
+
     def match_damage_to_part(
         self,
         damage,
         parts
     ):
 
-        height = damage["_image_height"]
-        width = damage["_image_width"]
+        height = damage[
+            "_image_height"
+        ]
+
+        width = damage[
+            "_image_width"
+        ]
 
         damage_bbox = tuple(
             damage["bbox_xyxy"]
@@ -396,7 +566,10 @@ class ImageDetectionSegmentation:
             damage_bbox
         )
 
-        if damage_area <= 0 or not parts:
+        if (
+            damage_area <= 0
+            or not parts
+        ):
             return "unknown"
 
         x1, y1, x2, y2 = [
@@ -404,12 +577,30 @@ class ImageDetectionSegmentation:
             for v in damage_bbox
         ]
 
-        x1 = max(0, x1)
-        y1 = max(0, y1)
-        x2 = min(width, x2)
-        y2 = min(height, y2)
+        x1 = max(
+            0,
+            x1
+        )
 
-        if x2 <= x1 or y2 <= y1:
+        y1 = max(
+            0,
+            y1
+        )
+
+        x2 = min(
+            width,
+            x2
+        )
+
+        y2 = min(
+            height,
+            y2
+        )
+
+        if (
+            x2 <= x1
+            or y2 <= y1
+        ):
             return "unknown"
 
         damage_mask = np.zeros(
@@ -422,22 +613,26 @@ class ImageDetectionSegmentation:
             x1:x2
         ] = 1
 
-        damage_center = self.bbox_center(
-            damage_bbox
+        damage_center = (
+            self.bbox_center(
+                damage_bbox
+            )
         )
 
         candidates = []
 
         for part in parts:
 
-            # object is NOT a valid affected part
+            # object is never a valid affected part
             if part["part"] == "object":
                 continue
 
-            part_mask = self.rasterize(
-                part["mask_polygon"],
-                height,
-                width
+            part_mask = (
+                self.rasterize(
+                    part["mask_polygon"],
+                    height,
+                    width
+                )
             )
 
             if part_mask.sum() == 0:
@@ -457,17 +652,21 @@ class ImageDetectionSegmentation:
                 ).sum()
             )
 
+            # Damage inside part
             in_part = (
                 intersection
-                / damage_area
+                /
+                damage_area
             )
 
+            # IoU
             iou = (
                 intersection / union
                 if union > 0
                 else 0.0
             )
 
+            # Center proximity
             proximity = (
                 self.center_proximity(
                     damage_center,
@@ -479,6 +678,7 @@ class ImageDetectionSegmentation:
                 )
             )
 
+            # Bounding-box containment
             containment = (
                 self.bbox_intersection(
                     damage_bbox,
@@ -494,6 +694,7 @@ class ImageDetectionSegmentation:
                 part["part_confidence"]
             )
 
+            # Weighted score
             score = (
                 0.45 * in_part
                 +
@@ -521,7 +722,9 @@ class ImageDetectionSegmentation:
             reverse=True
         )
 
-        best_score, best_part = candidates[0]
+        best_score, best_part = (
+            candidates[0]
+        )
 
         second_score = (
             candidates[1][0]
@@ -549,6 +752,7 @@ class ImageDetectionSegmentation:
     # =====================================================
     # ANNOTATED IMAGE
     # =====================================================
+
     def create_annotated_image(
         self,
         image_path,
@@ -560,21 +764,26 @@ class ImageDetectionSegmentation:
         with damage bounding boxes.
         """
 
-        image = cv2.imread(str(image_path))
+        image = cv2.imread(
+            str(image_path)
+        )
 
         if image is None:
+
             raise ValueError(
-                f"Could not read image: {image_path}"
+                f"Could not read image: "
+                f"{image_path}"
             )
 
         for damage in detections:
 
             x1, y1, x2, y2 = [
                 int(round(v))
-                for v in damage["bbox_xyxy"]
+                for v in damage[
+                    "bbox_xyxy"
+                ]
             ]
 
-            # Draw bounding box
             cv2.rectangle(
                 image,
                 (x1, y1),
@@ -583,7 +792,6 @@ class ImageDetectionSegmentation:
                 3
             )
 
-            # Label
             label = (
                 f'{damage["damage_type"]} '
                 f'{damage["confidence"]:.2f}'
@@ -592,14 +800,22 @@ class ImageDetectionSegmentation:
             cv2.putText(
                 image,
                 label,
-                (x1, max(30, y1 - 10)),
+                (
+                    x1,
+                    max(
+                        30,
+                        y1 - 10
+                    )
+                ),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
                 (0, 255, 0),
                 2
             )
 
-        output_path = Path(output_path)
+        output_path = Path(
+            output_path
+        )
 
         output_path.parent.mkdir(
             parents=True,
@@ -616,6 +832,7 @@ class ImageDetectionSegmentation:
     # =====================================================
     # FINAL JSON
     # =====================================================
+
     def build_final_json(
         self,
         image_path,
@@ -627,6 +844,7 @@ class ImageDetectionSegmentation:
         for damage in detections:
 
             final.append({
+
                 "image": Path(
                     image_path
                 ).name,
@@ -664,23 +882,175 @@ class ImageDetectionSegmentation:
         return final
 
     # =====================================================
+    # JSON VALIDATION
+    # =====================================================
+
+    @staticmethod
+    def validate_json_file(
+        json_path
+    ):
+        """
+        Validate a saved JSON file.
+
+        Checks:
+        - file exists
+        - file is not empty
+        - no semicolon ;
+        - valid brackets
+        - valid commas
+        - valid JSON syntax
+        - top-level structure is a list
+        """
+
+        json_path = Path(
+            json_path
+        )
+
+        # -------------------------------------------------
+        # 1. File exists
+        # -------------------------------------------------
+
+        if not json_path.exists():
+
+            return {
+                "valid": False,
+                "message": (
+                    f"JSON file not found: "
+                    f"{json_path}"
+                )
+            }
+
+        if not json_path.is_file():
+
+            return {
+                "valid": False,
+                "message": (
+                    f"JSON path is not a file: "
+                    f"{json_path}"
+                )
+            }
+
+        # -------------------------------------------------
+        # 2. Read file
+        # -------------------------------------------------
+
+        try:
+
+            raw_content = (
+                json_path.read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        except Exception as e:
+
+            return {
+                "valid": False,
+                "message": (
+                    f"Could not read JSON file: "
+                    f"{str(e)}"
+                )
+            }
+
+        # -------------------------------------------------
+        # 3. Empty file
+        # -------------------------------------------------
+
+        if not raw_content.strip():
+
+            return {
+                "valid": False,
+                "message": (
+                    "JSON file is empty."
+                )
+            }
+
+        # -------------------------------------------------
+        # 4. Semicolon check
+        # -------------------------------------------------
+
+        if ";" in raw_content:
+
+            return {
+                "valid": False,
+                "message": (
+                    "Invalid JSON: semicolon ';' "
+                    "is not allowed."
+                )
+            }
+
+        # -------------------------------------------------
+        # 5. JSON syntax check
+        # -------------------------------------------------
+
+        try:
+
+            data = json.loads(
+                raw_content
+            )
+
+        except json.JSONDecodeError as e:
+
+            return {
+                "valid": False,
+                "message": (
+                    "Invalid JSON syntax: "
+                    f"{e.msg} "
+                    f"(line {e.lineno}, "
+                    f"column {e.colno})"
+                )
+            }
+
+        # -------------------------------------------------
+        # 6. Top-level structure
+        # -------------------------------------------------
+
+        if not isinstance(
+            data,
+            list
+        ):
+
+            return {
+                "valid": False,
+                "message": (
+                    "Invalid JSON structure: "
+                    "top-level JSON must be a list []."
+                )
+            }
+
+        # -------------------------------------------------
+        # 7. Valid
+        # -------------------------------------------------
+
+        return {
+            "valid": True,
+            "message": (
+                "JSON file is valid."
+            ),
+            "data": data
+        }
+
+    # =====================================================
     # MAIN FUNCTION FOR FASTAPI
     # =====================================================
+
     def extract_information(
         self,
         image_path,
         output_dir="outputs"
     ) -> dict:
+
         """
         Main function that FastAPI will call.
-
-        Returns:
-            analyzed image path
-            final JSON
-            raw segmentation information
         """
 
-        image_path = Path(image_path)
+        image_path = Path(
+            image_path
+        )
+
+        # -------------------------------------------------
+        # Check image
+        # -------------------------------------------------
 
         if not image_path.exists():
 
@@ -692,44 +1062,63 @@ class ImageDetectionSegmentation:
 
         try:
 
-            # -----------------------------------------
+            # =============================================
             # 1. Damage Detection
-            # -----------------------------------------
-            damages = self.detect_damage(
-                image_path
+            # =============================================
+
+            damages = (
+                self.detect_damage(
+                    image_path
+                )
             )
 
-            # -----------------------------------------
+            # =============================================
             # 2. Part Segmentation
-            # -----------------------------------------
-            parts = self.segment_parts(
-                image_path
+            # =============================================
+
+            parts = (
+                self.segment_parts(
+                    image_path
+                )
             )
 
-            # -----------------------------------------
+            # =============================================
             # 3. Damage -> Part Matching
-            # -----------------------------------------
+            # =============================================
+
             for damage in damages:
 
-                damage["affected_part"] = (
+                damage[
+                    "affected_part"
+                ] = (
                     self.match_damage_to_part(
                         damage,
                         parts
                     )
                 )
 
-            # -----------------------------------------
-            # 4. Final JSON
-            # -----------------------------------------
-            final_json = self.build_final_json(
-                image_path,
-                damages
+            # =============================================
+            # 4. Build Final JSON
+            # =============================================
+
+            final_json = (
+                self.build_final_json(
+                    image_path,
+                    damages
+                )
             )
 
-            # -----------------------------------------
-            # 5. Save Annotated Image
-            # -----------------------------------------
-            output_dir = Path(output_dir)
+            # =============================================
+            # 5. Output directory
+            # =============================================
+
+            output_dir = Path(
+                output_dir
+            )
+
+            # =============================================
+            # 6. Annotated image
+            # =============================================
 
             image_output = (
                 output_dir
@@ -745,9 +1134,10 @@ class ImageDetectionSegmentation:
                 )
             )
 
-            # -----------------------------------------
-            # 6. Save JSON
-            # -----------------------------------------
+            # =============================================
+            # 7. Save JSON
+            # =============================================
+
             json_output = (
                 output_dir
                 / "json"
@@ -772,16 +1162,65 @@ class ImageDetectionSegmentation:
                     ensure_ascii=False
                 )
 
+            # =============================================
+            # 8. Validate saved JSON
+            # =============================================
+
+            json_validation = (
+                self.validate_json_file(
+                    json_output
+                )
+            )
+
+            if not json_validation["valid"]:
+
+                return {
+
+                    "status": "ERROR",
+
+                    "image": image_path.name,
+
+                    "annotated_image": str(
+                        annotated_path
+                    ),
+
+                    "json_file": str(
+                        json_output
+                    ),
+
+                    "message": (
+                        "JSON validation failed."
+                    ),
+
+                    "json_validation": (
+                        json_validation
+                    )
+                }
+
+            # =============================================
+            # 9. SUCCESS
+            # =============================================
+
             return {
+
                 "status": "SUCCESS",
 
                 "image": image_path.name,
 
-                "annotated_image": annotated_path,
+                "annotated_image": str(
+                    annotated_path
+                ),
 
                 "json_file": str(
                     json_output
                 ),
+
+                "json_validation": {
+                    "valid": True,
+                    "message": (
+                        "JSON file is valid."
+                    )
+                },
 
                 "results": final_json
             }
@@ -789,6 +1228,7 @@ class ImageDetectionSegmentation:
         except Exception as e:
 
             return {
+
                 "status": "ERROR",
 
                 "image": image_path.name,
