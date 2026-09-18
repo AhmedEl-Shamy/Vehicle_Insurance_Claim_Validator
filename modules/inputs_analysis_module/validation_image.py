@@ -8,8 +8,28 @@ from ultralytics import YOLO
 
 
 class ValidationImage:
+    """
+    Image validation model.
 
-    VEHICLE_MODEL_PATH = "assets/ai_models/yolo11n.pt"
+    Performs:
+    - Technical image quality checks
+    - MANIQA image quality assessment
+    - Vehicle presence detection
+
+    Designed for inference and later FastAPI integration.
+    """
+
+    # =====================================================
+    # MODEL PATH
+    # =====================================================
+
+    VEHICLE_MODEL_PATH = (
+        "assets/ai_models/yolo11n.pt"
+    )
+
+    # =====================================================
+    # INITIALIZATION
+    # =====================================================
 
     def __init__(
         self,
@@ -23,48 +43,125 @@ class ValidationImage:
             else "cpu"
         )
 
+        # Validation thresholds
         self.thresholds = {
+
             "MANIQA": 15,
+
             "BLUR": 40,
+
             "CONTRAST": 30,
+
             "BRIGHTNESS_MIN": 35,
+
             "BRIGHTNESS_MAX": 220,
+
             "MIN_WIDTH": 512,
-            "MIN_HEIGHT": 384,
+
+            "MIN_HEIGHT": 384
         }
 
         # The object holds the models
         self.vehicle_model = vehicle_model
+
         self.maniqa_metric = maniqa_metric
 
     # =====================================================
     # SAVE MODEL
     # =====================================================
+
     @staticmethod
     def save_model(
-        model_name: str = "yolo11n.pt"
+        model,
+        output_path="outputs/yolo11n.pt"
     ):
         """
-        Save/copy model if needed.
+        Save an already loaded YOLO model.
 
-        This is not needed for normal inference because
-        the model checkpoint already exists.
+        Parameters:
+            model:
+                Loaded Ultralytics YOLO model.
+
+            output_path:
+                Destination path for the saved model.
+
+        Returns:
+            Path to the saved model.
         """
-        pass
+
+        # -------------------------------------------------
+        # Check model
+        # -------------------------------------------------
+
+        if model is None:
+            raise ValueError(
+                "Model is None. Nothing to save."
+            )
+
+        # -------------------------------------------------
+        # Prepare output path
+        # -------------------------------------------------
+
+        output_path = Path(
+            output_path
+        )
+
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        # -------------------------------------------------
+        # Save model
+        # -------------------------------------------------
+
+        try:
+
+            model.save(
+                str(output_path)
+            )
+
+        except Exception as e:
+
+            raise RuntimeError(
+                f"Failed to save model: {e}"
+            )
+
+        print(
+            "✅ Model saved successfully:",
+            output_path
+        )
+
+        return output_path
 
     # =====================================================
     # LOAD MODEL
     # =====================================================
+
     @classmethod
     def load_model(cls):
+
+        # -------------------------------------------------
+        # Load vehicle model
+        # -------------------------------------------------
 
         vehicle_model = YOLO(
             cls.VEHICLE_MODEL_PATH
         )
 
+        print(
+            "✅ Vehicle model loaded:",
+            cls.VEHICLE_MODEL_PATH
+        )
+
+        # -------------------------------------------------
+        # Load MANIQA
+        # -------------------------------------------------
+
         maniqa_metric = None
 
         try:
+
             import pyiqa
 
             device = (
@@ -73,9 +170,13 @@ class ValidationImage:
                 else "cpu"
             )
 
-            maniqa_metric = pyiqa.create_metric(
-                "maniqa",
-                device=torch.device(device)
+            maniqa_metric = (
+                pyiqa.create_metric(
+                    "maniqa",
+                    device=torch.device(
+                        device
+                    )
+                )
             )
 
             print(
@@ -89,6 +190,10 @@ class ValidationImage:
                 e
             )
 
+        # -------------------------------------------------
+        # Return ready instance
+        # -------------------------------------------------
+
         return cls(
             vehicle_model=vehicle_model,
             maniqa_metric=maniqa_metric
@@ -97,16 +202,25 @@ class ValidationImage:
     # =====================================================
     # IMAGE LOADING
     # =====================================================
-    @staticmethod
-    def load_image(image_path):
 
-        image_path = Path(image_path)
+    @staticmethod
+    def load_image(
+        image_path
+    ):
+
+        image_path = Path(
+            image_path
+        )
 
         try:
 
-            return Image.open(
-                image_path
-            ).convert("RGB")
+            return (
+                Image.open(
+                    image_path
+                ).convert(
+                    "RGB"
+                )
+            )
 
         except Exception as e:
 
@@ -118,6 +232,7 @@ class ValidationImage:
     # =====================================================
     # IMAGE QUALITY
     # =====================================================
+
     def calculate_quality(
         self,
         image_path
@@ -140,6 +255,10 @@ class ValidationImage:
             gray.shape[:2]
         )
 
+        # -------------------------------------------------
+        # Blur score
+        # -------------------------------------------------
+
         blur_score = float(
             cv2.Laplacian(
                 gray,
@@ -147,9 +266,17 @@ class ValidationImage:
             ).var()
         )
 
+        # -------------------------------------------------
+        # Brightness
+        # -------------------------------------------------
+
         brightness = float(
             gray.mean()
         )
+
+        # -------------------------------------------------
+        # Contrast
+        # -------------------------------------------------
 
         contrast = float(
             gray.std()
@@ -157,9 +284,13 @@ class ValidationImage:
 
         return {
 
-            "width": int(width),
+            "width": int(
+                width
+            ),
 
-            "height": int(height),
+            "height": int(
+                height
+            ),
 
             "blur_score": round(
                 blur_score,
@@ -210,12 +341,13 @@ class ValidationImage:
                 >= self.thresholds[
                     "CONTRAST"
                 ]
-            ),
+            )
         }
 
     # =====================================================
     # MANIQA
     # =====================================================
+
     def calculate_maniqa(
         self,
         image_path
@@ -257,6 +389,7 @@ class ValidationImage:
     # =====================================================
     # VEHICLE DETECTION
     # =====================================================
+
     def check_vehicle(
         self,
         image_path
@@ -265,8 +398,11 @@ class ValidationImage:
         if self.vehicle_model is None:
 
             return {
+
                 "vehicle_detected": False,
+
                 "vehicle_count": 0,
+
                 "vehicle_confidence": 0.0
             }
 
@@ -278,6 +414,7 @@ class ValidationImage:
         )[0]
 
         vehicle_count = 0
+
         best_confidence = 0.0
 
         if result.boxes is not None:
@@ -321,6 +458,7 @@ class ValidationImage:
     # =====================================================
     # MAIN FUNCTION
     # =====================================================
+
     def extract_information(
         self,
         image_path
@@ -330,21 +468,36 @@ class ValidationImage:
             image_path
         )
 
+        # -------------------------------------------------
+        # Check image exists
+        # -------------------------------------------------
+
         if not image_path.exists():
 
             return {
+
                 "status": "ERROR",
+
                 "image": image_path.name,
+
                 "message": "Image not found."
             }
 
         try:
+
+            # =============================================
+            # 1. Technical Image Quality
+            # =============================================
 
             quality = (
                 self.calculate_quality(
                     image_path
                 )
             )
+
+            # =============================================
+            # 2. MANIQA
+            # =============================================
 
             maniqa_score = (
                 self.calculate_maniqa(
@@ -369,6 +522,10 @@ class ValidationImage:
                 "maniqa_ok"
             ] = maniqa_ok
 
+            # =============================================
+            # 3. Vehicle Detection
+            # =============================================
+
             vehicle_result = (
                 self.check_vehicle(
                     image_path
@@ -379,15 +536,31 @@ class ValidationImage:
                 vehicle_result
             )
 
+            # =============================================
+            # 4. Technical Validation
+            # =============================================
+
             technical_pass = (
-                quality["resolution_ok"]
+                quality[
+                    "resolution_ok"
+                ]
                 and
-                quality["blur_ok"]
+                quality[
+                    "blur_ok"
+                ]
                 and
-                quality["brightness_ok"]
+                quality[
+                    "brightness_ok"
+                ]
                 and
-                quality["contrast_ok"]
+                quality[
+                    "contrast_ok"
+                ]
             )
+
+            # =============================================
+            # 5. Final Validation
+            # =============================================
 
             final_valid = (
                 technical_pass
@@ -399,11 +572,16 @@ class ValidationImage:
                 ]
             )
 
+            # =============================================
+            # 6. Failure Reasons
+            # =============================================
+
             failure_reasons = []
 
             if not quality[
                 "resolution_ok"
             ]:
+
                 failure_reasons.append(
                     "resolution"
                 )
@@ -411,6 +589,7 @@ class ValidationImage:
             if not quality[
                 "blur_ok"
             ]:
+
                 failure_reasons.append(
                     "blur"
                 )
@@ -418,6 +597,7 @@ class ValidationImage:
             if not quality[
                 "brightness_ok"
             ]:
+
                 failure_reasons.append(
                     "brightness"
                 )
@@ -425,11 +605,13 @@ class ValidationImage:
             if not quality[
                 "contrast_ok"
             ]:
+
                 failure_reasons.append(
                     "contrast"
                 )
 
             if not maniqa_ok:
+
                 failure_reasons.append(
                     "MANIQA"
                 )
@@ -437,9 +619,14 @@ class ValidationImage:
             if not quality[
                 "vehicle_detected"
             ]:
+
                 failure_reasons.append(
                     "vehicle_presence"
                 )
+
+            # =============================================
+            # 7. Final Result
+            # =============================================
 
             return {
 
@@ -460,7 +647,10 @@ class ValidationImage:
         except Exception as e:
 
             return {
+
                 "status": "ERROR",
+
                 "image": image_path.name,
+
                 "message": str(e)
             }
