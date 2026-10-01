@@ -1,10 +1,62 @@
 from pathlib import Path
 import json
-
+from typing import List, Literal
 import cv2
 import numpy as np
 import torch
+from pydantic import BaseModel, Field, TypeAdapter
 from ultralytics import YOLO
+
+
+ ========
+# PYDANTIC OUTPUT SCHEMA
+ ========
+
+class ImageDamageResult(BaseModel):
+    """Validated schema for one detected damage instance."""
+
+    image: str = Field(
+        ...,
+        description="Input image filename"
+    )
+
+    damage_type: str = Field(
+        ...,
+        min_length=1,
+        description="Detected type of vehicle damage"
+    )
+
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Damage detection confidence"
+    )
+
+    bbox_xyxy: List[float] = Field(
+        ...,
+        min_length=4,
+        max_length=4,
+        description="Damage bounding box [x1, y1, x2, y2]"
+    )
+
+    affected_part: str = Field(
+        ...,
+        min_length=1,
+        description="Vehicle part affected by the detected damage"
+    )
+
+    severity: Literal["minor", "moderate", "severe"] = Field(
+        ...,
+        description="Damage severity based on bounding-box area ratio"
+    )
+
+    severity_area_ratio: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Ratio of damage bounding-box area to image area"
+    )
 
 
 class ImageDetectionSegmentation:
@@ -15,9 +67,9 @@ class ImageDetectionSegmentation:
     It does not train or retrain models.
     """
 
-    # =====================================================
+     ========
     # MODEL PATHS
-    # =====================================================
+     ========
 
     DAMAGE_MODEL_PATH = (
         "assets/ai_models/damage_detection/best.pt"
@@ -27,9 +79,9 @@ class ImageDetectionSegmentation:
         "assets/ai_models/segmentation/best.pt"
     )
 
-    # =====================================================
+     ========
     # INITIALIZATION
-    # =====================================================
+     ========
 
     def __init__(
         self,
@@ -61,9 +113,9 @@ class ImageDetectionSegmentation:
             segmentation_confidence
         )
 
-    # =====================================================
+     ========
     # SAVE MODEL
-    # =====================================================
+     ========
 
     @staticmethod
     def save_model(
@@ -114,9 +166,9 @@ class ImageDetectionSegmentation:
 
         return output_path
 
-    # =====================================================
+     ========
     # LOAD MODELS
-    # =====================================================
+     ========
 
     @classmethod
     def load_model(
@@ -178,7 +230,7 @@ class ImageDetectionSegmentation:
         )
 
         print(
-            "✅ Damage model loaded:",
+            "Damage model loaded:",
             damage_model_path
         )
 
@@ -191,7 +243,7 @@ class ImageDetectionSegmentation:
         )
 
         print(
-            "✅ Segmentation model loaded:",
+            "Segmentation model loaded:",
             segmentation_model_path
         )
 
@@ -226,9 +278,9 @@ class ImageDetectionSegmentation:
             segmentation_confidence=segmentation_confidence,
         )
 
-    # =====================================================
+     ========
     # DAMAGE DETECTION
-    # =====================================================
+     ========
 
     def detect_damage(
         self,
@@ -336,9 +388,9 @@ class ImageDetectionSegmentation:
 
         return detections
 
-    # =====================================================
+     ========
     # VEHICLE PART SEGMENTATION
-    # =====================================================
+     ========
 
     def segment_parts(
         self,
@@ -425,9 +477,9 @@ class ImageDetectionSegmentation:
 
         return parts
 
-    # =====================================================
+     ========
     # BBOX HELPERS
-    # =====================================================
+     ========
 
     @staticmethod
     def bbox_area(bbox):
@@ -502,9 +554,9 @@ class ImageDetectionSegmentation:
             1.0 - distance / diagonal
         )
 
-    # =====================================================
+     ========
     # POLYGON / MASK
-    # =====================================================
+     ========
 
     @staticmethod
     def rasterize(
@@ -540,9 +592,9 @@ class ImageDetectionSegmentation:
 
         return mask
 
-    # =====================================================
+     ========
     # DAMAGE -> PART MATCHING
-    # =====================================================
+     ========
 
     def match_damage_to_part(
         self,
@@ -749,9 +801,9 @@ class ImageDetectionSegmentation:
 
         return best_part["part"]
 
-    # =====================================================
+     ========
     # ANNOTATED IMAGE
-    # =====================================================
+     ========
 
     def create_annotated_image(
         self,
@@ -829,9 +881,9 @@ class ImageDetectionSegmentation:
 
         return output_path
 
-    # =====================================================
+     ========
     # FINAL JSON
-    # =====================================================
+     ========
 
     def build_final_json(
         self,
@@ -879,11 +931,23 @@ class ImageDetectionSegmentation:
                     ]
             })
 
-        return final
+        # -------------------------------------------------
+        # Pydantic validation
 
-    # =====================================================
+        # Keep the existing top-level JSON structure as a list,
+        # while validating every detection against ImageDamageResult.
+        validated_results = TypeAdapter(
+            List[ImageDamageResult]
+        ).validate_python(final)
+
+        return [
+            item.model_dump()
+            for item in validated_results
+        ]
+
+     ========
     # JSON VALIDATION
-    # =====================================================
+     ========
 
     @staticmethod
     def validate_json_file(
@@ -908,7 +972,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # 1. File exists
-        # -------------------------------------------------
 
         if not json_path.exists():
 
@@ -932,7 +995,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # 2. Read file
-        # -------------------------------------------------
 
         try:
 
@@ -954,7 +1016,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # 3. Empty file
-        # -------------------------------------------------
 
         if not raw_content.strip():
 
@@ -967,7 +1028,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # 4. Semicolon check
-        # -------------------------------------------------
 
         if ";" in raw_content:
 
@@ -981,7 +1041,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # 5. JSON syntax check
-        # -------------------------------------------------
 
         try:
 
@@ -1003,7 +1062,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # 6. Top-level structure
-        # -------------------------------------------------
 
         if not isinstance(
             data,
@@ -1020,7 +1078,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # 7. Valid
-        # -------------------------------------------------
 
         return {
             "valid": True,
@@ -1030,9 +1087,8 @@ class ImageDetectionSegmentation:
             "data": data
         }
 
-    # =====================================================
+     ========
     # MAIN FUNCTION FOR FASTAPI
-    # =====================================================
 
     def extract_information(
         self,
@@ -1050,7 +1106,6 @@ class ImageDetectionSegmentation:
 
         # -------------------------------------------------
         # Check image
-        # -------------------------------------------------
 
         if not image_path.exists():
 
@@ -1062,29 +1117,26 @@ class ImageDetectionSegmentation:
 
         try:
 
-            # =============================================
+             
             # 1. Damage Detection
-            # =============================================
-
+             
             damages = (
                 self.detect_damage(
                     image_path
                 )
             )
 
-            # =============================================
+             
             # 2. Part Segmentation
-            # =============================================
-
+             
             parts = (
                 self.segment_parts(
                     image_path
                 )
             )
 
-            # =============================================
-            # 3. Damage -> Part Matching
-            # =============================================
+             
+            # 3. Damage -> Part Matching  
 
             for damage in damages:
 
@@ -1097,10 +1149,9 @@ class ImageDetectionSegmentation:
                     )
                 )
 
-            # =============================================
+             
             # 4. Build Final JSON
-            # =============================================
-
+             
             final_json = (
                 self.build_final_json(
                     image_path,
@@ -1108,17 +1159,15 @@ class ImageDetectionSegmentation:
                 )
             )
 
-            # =============================================
+             
             # 5. Output directory
-            # =============================================
-
+             
             output_dir = Path(
                 output_dir
             )
 
-            # =============================================
+             
             # 6. Annotated image
-            # =============================================
 
             image_output = (
                 output_dir
@@ -1134,9 +1183,9 @@ class ImageDetectionSegmentation:
                 )
             )
 
-            # =============================================
+             
             # 7. Save JSON
-            # =============================================
+             
 
             json_output = (
                 output_dir
@@ -1162,9 +1211,8 @@ class ImageDetectionSegmentation:
                     ensure_ascii=False
                 )
 
-            # =============================================
-            # 8. Validate saved JSON
-            # =============================================
+             
+            # 8. Validate saved JSON   
 
             json_validation = (
                 self.validate_json_file(
@@ -1197,10 +1245,8 @@ class ImageDetectionSegmentation:
                     )
                 }
 
-            # =============================================
+             
             # 9. SUCCESS
-            # =============================================
-
             return {
 
                 "status": "SUCCESS",
