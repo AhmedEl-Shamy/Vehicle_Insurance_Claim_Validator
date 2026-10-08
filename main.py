@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import json
+from dotenv import load_dotenv
+
 from modules.inputs_analysis_module.user_description_model import UserDescriptionModel
+
+load_dotenv()
 
 app = FastAPI()
 
