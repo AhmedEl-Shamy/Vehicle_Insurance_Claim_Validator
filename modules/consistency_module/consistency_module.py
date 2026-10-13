@@ -22,7 +22,7 @@ class ConsistencyModule:
     # Load Model Function
     # ================================================================================
     @classmethod
-    def load_model(cls):
+    def load_module(cls):
         hf_token = os.getenv("CONSISTENCY_HF_TOKEN")
         client = InferenceClient(
             model=cls.BASE_MODEL_NAME,

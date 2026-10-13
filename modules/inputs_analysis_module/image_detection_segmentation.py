@@ -8,9 +8,9 @@ from pydantic import BaseModel, Field, TypeAdapter
 from ultralytics import YOLO
 
 
- ========
+## ========================================
 # PYDANTIC OUTPUT SCHEMA
- ========
+## ========================================
 
 class ImageDamageResult(BaseModel):
     """Validated schema for one detected damage instance."""
@@ -67,9 +67,9 @@ class ImageDetectionSegmentation:
     It does not train or retrain models.
     """
 
-     ========
+    ## ========================================
     # MODEL PATHS
-     ========
+    ## ========================================
 
     DAMAGE_MODEL_PATH = (
         "assets/ai_models/damage_detection/best.pt"
@@ -79,9 +79,9 @@ class ImageDetectionSegmentation:
         "assets/ai_models/segmentation/best.pt"
     )
 
-     ========
+    ## ========================================
     # INITIALIZATION
-     ========
+    ## ========================================
 
     def __init__(
         self,
@@ -113,9 +113,9 @@ class ImageDetectionSegmentation:
             segmentation_confidence
         )
 
-     ========
+    ## ========================================
     # SAVE MODEL
-     ========
+    ## ========================================
 
     @staticmethod
     def save_model(
@@ -166,9 +166,9 @@ class ImageDetectionSegmentation:
 
         return output_path
 
-     ========
+    ## ========================================
     # LOAD MODELS
-     ========
+    ## ========================================
 
     @classmethod
     def load_model(
@@ -278,9 +278,9 @@ class ImageDetectionSegmentation:
             segmentation_confidence=segmentation_confidence,
         )
 
-     ========
+    # ========================
     # DAMAGE DETECTION
-     ========
+    # ========================
 
     def detect_damage(
         self,
@@ -388,9 +388,9 @@ class ImageDetectionSegmentation:
 
         return detections
 
-     ========
+    # ========================
     # VEHICLE PART SEGMENTATION
-     ========
+    # ========================
 
     def segment_parts(
         self,
@@ -477,9 +477,9 @@ class ImageDetectionSegmentation:
 
         return parts
 
-     ========
+    # ========================
     # BBOX HELPERS
-     ========
+    # ========================
 
     @staticmethod
     def bbox_area(bbox):
@@ -554,9 +554,9 @@ class ImageDetectionSegmentation:
             1.0 - distance / diagonal
         )
 
-     ========
+    # ========================
     # POLYGON / MASK
-     ========
+    # ========================
 
     @staticmethod
     def rasterize(
@@ -592,9 +592,9 @@ class ImageDetectionSegmentation:
 
         return mask
 
-     ========
+    # ========================
     # DAMAGE -> PART MATCHING
-     ========
+    # ========================
 
     def match_damage_to_part(
         self,
@@ -801,9 +801,9 @@ class ImageDetectionSegmentation:
 
         return best_part["part"]
 
-     ========
+    # ========================
     # ANNOTATED IMAGE
-     ========
+    # ========================
 
     def create_annotated_image(
         self,
@@ -881,9 +881,9 @@ class ImageDetectionSegmentation:
 
         return output_path
 
-     ========
+    # ========================
     # FINAL JSON
-     ========
+    # ========================
 
     def build_final_json(
         self,
@@ -945,9 +945,9 @@ class ImageDetectionSegmentation:
             for item in validated_results
         ]
 
-     ========
+    # ========================
     # JSON VALIDATION
-     ========
+    # ========================
 
     @staticmethod
     def validate_json_file(
@@ -1087,7 +1087,7 @@ class ImageDetectionSegmentation:
             "data": data
         }
 
-     ========
+    # ========================
     # MAIN FUNCTION FOR FASTAPI
 
     def extract_information(
