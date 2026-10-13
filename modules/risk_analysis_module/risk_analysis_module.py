@@ -1,6 +1,6 @@
 class RiskAnalysisModule:
     def __init__(self):
-            pass
+        pass
     
     @staticmethod
     def save_model():
