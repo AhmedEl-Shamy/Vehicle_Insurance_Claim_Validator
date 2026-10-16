@@ -1,7 +1,7 @@
 from modules.inputs_analysis_module.inputs_analysis_module import InputsAnalysisModule
 from modules.consistency_module.consistency_module import ConsistencyModule
 from modules.risk_analysis_module.risk_analysis_module import RiskAnalysisModule
-from modules.report_generation_module.report_module import ReportModule
+from modules.report_generation_module.report_generation_module import ReportModule
 from modules.validation_module.inputs_validation_module import InputsValidationModule
 
 import json
@@ -46,9 +46,14 @@ class InsuranceValidator:
         # ==================================================
         # Layer 1: Validation Layer
         # ==================================================
-        validation_scores = self.validation_module.get_validation_scores(images=images)
+        validation_info = self.validation_module.get_validation_info(
+            images=images,
+            invoice=invoice,
+            police_report=police_report
+        )
+        validation_scores = self.validation_module.get_validation_scores(validation_info=validation_info)
 
-        if self.validation_module.is_valid(validation_scores=validation_scores):
+        if self.validation_module.is_valid(validation_info=validation_info):
 
             # ==================================================
             # Layer 2: Inputs Analysis Layer
