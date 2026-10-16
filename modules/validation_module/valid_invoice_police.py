@@ -226,24 +226,3 @@ class ValidInvoicePolice:
             return json.dumps(res, indent=4, ensure_ascii=False)
           time.sleep(2)
 
-
-# ==========================================
-# TEST
-# ==========================================
-if __name__ == "__main__":
-    # 1. Loading the module
-    validator = Valid_Invoice_Police.load_model()
-
-    # 2. Defining Supabase Links
-    supabase_invoice_url = "https://your-supabase-project.supabase.co/storage/v1/object/public/claims/invoice_sample.pdf"
-    supabase_police_url = "https://your-supabase-project.supabase.co/storage/v1/object/public/claims/police_report.pdf"
-
-    # 3. Actual invocation and execution of the check on the links
-    validation_result_str = validator.extract_information(
-        invoice_path=supabase_invoice_url,
-        police_report_path=supabase_police_url
-    )
-
-    # 4. Print the final result string
-    print("\n--- Output (Returned JSON String) ---")
-    print(validation_result_str)
