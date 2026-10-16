@@ -1,4 +1,4 @@
-from modules.validation_module.ai_check_model import AICheckModel
+from modules.validation_module.ai_image_detector import AIImageDetector
 from modules.validation_module.validation_image import ValidationImage
 from modules.validation_module.valid_invoice_police import ValidInvoicePolice
 import json
@@ -7,22 +7,22 @@ import json
 class InputsValidationModule:
     def __init__(
             self, 
-            ai_check_model: AICheckModel,
+            ai_image_detector: AIImageDetector,
             validation_image_model: ValidationImage,
             validation_invoice_police: ValidInvoicePolice
     ):
-        self.ai_check_model = ai_check_model
+        self.ai_image_detector = ai_image_detector
         self.validation_image_model = validation_image_model
         self.validation_invoice_police = validation_invoice_police
 
     @classmethod
     def load_module(cls):
-        ai_check_model = AICheckModel.load_model()
+        c = AIImageDetector()
         validation_image_model = ValidationImage.load_model()
         validation_invoice_police = ValidInvoicePolice.load_model()
 
         return cls(
-            ai_check_model =  ai_check_model,
+            ai_image_detector =  ai_image_detector,
             validation_image_model = validation_image_model,
             validation_invoice_police = validation_invoice_police
         )
@@ -34,14 +34,15 @@ class InputsValidationModule:
             invoice_path=invoice, 
             police_report_path=police_report
         ))
-
         image_validation_info = {
             'image_quality_status': image_validation_data['status'].lower(),
             'vehicle_detected': image_validation_data['vehicle_detected'],
             'vehicle_detected_confidence': image_validation_data['vehicle_confidence']
         }
+        ai_score, ai_details = self.ai_image_detector.predict_batch_from_urls(image_urls=images)
         validation_info = {
-            "ai_score": self.ai_check_model.get_ai_score(),
+            "ai_score": ai_score,
+            "ai_images_details": ai_details,
             "image_validation": image_validation_info,
             "police_report_validation": invoice_police_validation_data['police_report'],
             "invoice_validation": invoice_police_validation_data['invoice']
