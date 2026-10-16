@@ -73,7 +73,7 @@ class ValidationImage:
     @staticmethod
     def save_model(
         model,
-        output_path="outputs/yolo11n.pt"
+        output_path=VEHICLE_MODEL_PATH
     ):
         """
         Save an already loaded YOLO model.

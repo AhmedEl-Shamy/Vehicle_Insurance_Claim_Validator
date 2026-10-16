@@ -1,7 +1,7 @@
 from modules.inputs_analysis_module.inputs_analysis_module import InputsAnalysisModule
 from modules.consistency_module.consistency_module import ConsistencyModule
 from modules.risk_analysis_module.risk_analysis_module import RiskAnalysisModule
-from modules.report_generation_module.report_generation_module import ReportModule
+from modules.report_generation_module.report_module import ReportModule
 from modules.validation_module.inputs_validation_module import InputsValidationModule
 
 import json

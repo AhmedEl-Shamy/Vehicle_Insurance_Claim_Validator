@@ -11,5 +11,5 @@ class AICheckModel:
     def load_model():
         pass
 
-    def extract_information(self) -> str:
+    def get_ai_score(self) -> float:
         pass

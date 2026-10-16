@@ -24,47 +24,38 @@ class InputsValidationModule:
 
     def get_validation_info(self, images) -> dict:
         """Get the validation information of inputs"""
+        image_validation_data = json.loads(self.validation_image_model.extract_information())
+        image_validation_info = {
+            'image_quality_status': image_validation_data['status'].lower(),
+            'vehicle_detected': image_validation_data['vehicle_detected'],
+            'vehicle_detected_confidence': image_validation_data['vehicle_confidence']
+        }
         validation_info = {
-            "ai_validation": self.ai_check_model.extract_information(),
-            "image_validation": self.validation_image_model.extract_information()
+            "ai_score": self.ai_check_model.get_ai_score(),
+            "image_validation": image_validation_info
         }
         return validation_info
-    
-    def getAIScore(self, validation_info):
-        """Return The AI score from validation info (get_validation_info returned value)"""
-        ai_validation_info = json.loads(validation_info['ai_validation'])
 
-        # Modify this line to get ai_score
-        ai_score = 4
-        return ai_score
-
-    def get_image_quality_scores(self, validation_info):
-        "Return The Image Quality scores from validation info (get_validation_info returned value)"
-        image_quality_info = json.loads(validation_info['image_validation'])
-
-        # Modify these lines to get image_qulaity_score and image_quality_confidence
-        image_quality_score = 2
-        image_quality_confidence = 0.9
-        return image_quality_score, image_quality_confidence
-
-
-    def get_validation_scores(self, images) -> dict:
+    def get_validation_scores(self, validation_info) -> dict:
         """Get the validation information of inputs"""
-        validation_info = self.get_validation_info(images)
-        ai_score = self.getAIScore(validation_info=validation_info)
-        image_quality_score, image_quality_confidence = self.get_image_quality_scores(validation_info=validation_info)
+        ai_score = validation_info['ai_score']
+        vehicle_detected_confidence = validation_info['image_validation']['vehicle_detected_confidence']
 
         validation_scores = {
             "ai_score": ai_score,
-            "image_quality_score": image_quality_score,
-            "image_quality_confidence": image_quality_confidence
+            "vehicle_detected_confidence": vehicle_detected_confidence
         }
         return validation_scores
 
-    def is_valid(self, validation_scores) -> bool:
+    def is_valid(self, validation_info) -> bool:
         """Return False only if the inputs violates our Rules"""
+        ai_score = validation_info['ai_score']
+        image_status = validation_info['image_validation']['image_quality_status']
+        is_car_detected = validation_info['image_validation']['vehicle_detected']
 
-        # Check if inputs voilates our rules ===> RETURN FALSE
+        if image_status != "valid": return False
+        if not is_car_detected: return False
+        if ai_score >= 3.5 : return False
 
         return True
 
