@@ -180,13 +180,13 @@ class ValidationImage:
             )
 
             print(
-                "✅ MANIQA loaded successfully"
+                "MANIQA loaded successfully"
             )
 
         except Exception as e:
 
             print(
-                "❌ MANIQA could not be loaded:",
+                "MANIQA could not be loaded:",
                 e
             )
 
