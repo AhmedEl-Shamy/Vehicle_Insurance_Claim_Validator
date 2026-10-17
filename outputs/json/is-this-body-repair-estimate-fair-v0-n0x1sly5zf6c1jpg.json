@@ -1,0 +1,30 @@
+[
+  {
+    "image": "is-this-body-repair-estimate-fair-v0-n0x1sly5zf6c1jpg.webp",
+    "damage_type": "scratch",
+    "confidence": 0.4711,
+    "bbox_xyxy": [
+      546.9,
+      2.3,
+      1080.0,
+      589.3
+    ],
+    "affected_part": "unknown",
+    "severity": "severe",
+    "severity_area_ratio": 0.2012
+  },
+  {
+    "image": "is-this-body-repair-estimate-fair-v0-n0x1sly5zf6c1jpg.webp",
+    "damage_type": "scratch",
+    "confidence": 0.3213,
+    "bbox_xyxy": [
+      661.4,
+      725.3,
+      1079.0,
+      969.6
+    ],
+    "affected_part": "unknown",
+    "severity": "moderate",
+    "severity_area_ratio": 0.0656
+  }
+]

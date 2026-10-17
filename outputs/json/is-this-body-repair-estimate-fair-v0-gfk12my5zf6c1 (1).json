@@ -1,0 +1,44 @@
+[
+  {
+    "image": "is-this-body-repair-estimate-fair-v0-gfk12my5zf6c1 (1).jpg",
+    "damage_type": "scratch",
+    "confidence": 0.5899,
+    "bbox_xyxy": [
+      136.5,
+      469.5,
+      900.5,
+      1185.9
+    ],
+    "affected_part": "trunk",
+    "severity": "severe",
+    "severity_area_ratio": 0.3519
+  },
+  {
+    "image": "is-this-body-repair-estimate-fair-v0-gfk12my5zf6c1 (1).jpg",
+    "damage_type": "scratch",
+    "confidence": 0.3912,
+    "bbox_xyxy": [
+      944.0,
+      639.2,
+      1080.0,
+      788.8
+    ],
+    "affected_part": "trunk",
+    "severity": "minor",
+    "severity_area_ratio": 0.0131
+  },
+  {
+    "image": "is-this-body-repair-estimate-fair-v0-gfk12my5zf6c1 (1).jpg",
+    "damage_type": "scratch",
+    "confidence": 0.3234,
+    "bbox_xyxy": [
+      210.2,
+      672.7,
+      889.3,
+      1183.5
+    ],
+    "affected_part": "trunk",
+    "severity": "severe",
+    "severity_area_ratio": 0.2231
+  }
+]
