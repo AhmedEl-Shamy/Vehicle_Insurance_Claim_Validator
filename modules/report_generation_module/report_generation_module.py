@@ -25,6 +25,23 @@ SECTION_HEADINGS = (
     "## Overall Recommendation",
 )
 
+POLIMI_JEV_SCORE_RULES = """
+Interpret ai_score as the PoliMi/JEV output score S only when its source is
+explicitly confirmed to be the PoliMi/JEV detector (for example, by setting
+validation_scores['ai_score_source'] to 'polimi_jev').
+
+- S < 0.05: AI_RISK_NONE — statistically identical to natural photo data.
+- 0.05 <= S < 1.00: AI_RISK_MILD — slight anomaly, such as heavy compression,
+  filtering, or minor edits.
+- 1.00 <= S <= 3.00: AI_RISK_HIGH — high likelihood of a synthetic element
+  or heavy manipulation.
+- S > 3.00: outside the supplied classification ranges; do not classify it.
+
+These categories concern image-analysis risk, not insurance fraud probability.
+They are not proof of fraud or manipulation. Do not apply these thresholds to
+vehicle_detected_confidence or the insurance risk_class.
+"""
+
 SYSTEM_PROMPT = """
 You are a careful report writer for a Vehicle Insurance Claim Validator.
 
@@ -49,7 +66,15 @@ EVIDENCE RULES:
   absent from every source in the complete claim file.
 - Distinguish explicit facts from possible explanations.
 - Do not invent a reason why a repair shop included a part.
-- Do not interpret a numeric score unless its scale and meaning are known.
+- Interpret ai_score using the PoliMi/JEV rules only when its source is
+  explicitly confirmed as 'polimi_jev' in validation_scores.ai_score_source.
+- PoliMi/JEV ranges: S < 0.05 = AI_RISK_NONE; 0.05 <= S < 1.00 =
+  AI_RISK_MILD; 1.00 <= S <= 3.00 = AI_RISK_HIGH. S > 3.00 is outside
+  the supplied classification ranges and must not be classified.
+- If the ai_score source is not confirmed, report its raw value without
+  assigning a category. Do not apply these thresholds to other metrics.
+- AI image-risk categories are not insurance fraud probabilities or proof
+  of fraud or manipulation.
 - Do not treat an absent fraud result as a completed fraud assessment.
 - Do not calculate a new risk classification.
 - If sources conflict, describe the conflict instead of choosing a version
@@ -116,7 +141,12 @@ Requirements:
 - Identify the source of each finding whenever possible.
 - Do not invent vehicle attributes, policy details, or incident circumstances.
 - Do not invent explanations for invoice-only parts.
-- Do not interpret scores without a documented scale.
+- Interpret ai_score using the supplied PoliMi/JEV rules only when
+  validation_scores.ai_score_source is explicitly 'polimi_jev'.
+- If that source is not confirmed, report ai_score as a raw value without
+  assigning a category. Never apply the scale to other metrics.
+- AI image-risk categories are not insurance fraud probabilities or proof
+  of fraud or manipulation.
 - Do not claim fraud detection occurred unless a fraud result was supplied.
 - Every recommendation must contain Action, Reason, and Expected outcome.
 - Do not add a technical limitations section or scoring table.
@@ -302,6 +332,12 @@ class ReportModule:
             if key in validation_scores:
                 summary[key] = validation_scores[key]
 
+        # Preserve explicit provenance so the report never guesses a score scale.
+        if "ai_score_source" in validation_scores:
+            summary["ai_score_source"] = validation_scores["ai_score_source"]
+        if "ai_score_scale" in validation_scores:
+            summary["ai_score_scale"] = validation_scores["ai_score_scale"]
+
         return summary
 
     def _generate_section(
@@ -472,11 +508,59 @@ class ReportModule:
             )
 
         if "ai_score" in validation_scores:
-            lines.append(
-                "- **Reported AI score:** "
-                f"{ReportModule._format_raw_score(validation_scores['ai_score'])}. "
-                "Its scale and interpretation were not provided."
-            )
+            value = validation_scores["ai_score"]
+            source = str(
+                validation_scores.get("ai_score_source", "")
+                or validation_scores.get("ai_score_scale", "")
+            ).strip().lower().replace("-", "_").replace("/", "_")
+            source_confirmed = source in {
+                "polimi_jev", "polimi_jev_score", "jev", "polimi"
+            }
+
+            if not source_confirmed:
+                lines.append(
+                    "- **Reported AI score (raw value):** "
+                    f"{ReportModule._format_raw_score(value)}. "
+                    "Its source/scale was not explicitly confirmed as PoliMi/JEV, "
+                    "so no category has been assigned."
+                )
+            elif (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+            ):
+                if value < 0.05:
+                    interpretation = (
+                        "**AI_RISK_NONE** — statistically identical to natural "
+                        "photo data according to the supplied specification."
+                    )
+                elif value < 1.00:
+                    interpretation = (
+                        "**AI_RISK_MILD** — slight anomaly, such as heavy "
+                        "compression, filtering, or minor edits."
+                    )
+                elif value <= 3.00:
+                    interpretation = (
+                        "**AI_RISK_HIGH** — high likelihood of a synthetic "
+                        "element or heavy manipulation according to the "
+                        "supplied specification."
+                    )
+                else:
+                    interpretation = (
+                        "Outside the supplied PoliMi/JEV classification "
+                        "ranges; no category assigned."
+                    )
+
+                lines.append(
+                    "- **Reported AI image-risk score (PoliMi/JEV):** "
+                    f"{ReportModule._format_raw_score(value)}. "
+                    f"{interpretation} This is not proof of fraud or manipulation."
+                )
+            else:
+                lines.append(
+                    "- **Reported AI score (PoliMi/JEV):** "
+                    f"{ReportModule._format_raw_score(value)}. "
+                    "The value is not numeric, so it was not classified."
+                )
 
         if "vehicle_detected_confidence" in validation_scores:
             lines.append(
@@ -783,6 +867,7 @@ or denied.
             "consistency_result": consistency_result,
             "risk_class": risk_class,
             "evidence_summary": evidence_summary,
+            "ai_score_interpretation_rules": POLIMI_JEV_SCORE_RULES,
         }
 
         evidence_json = json.dumps(
