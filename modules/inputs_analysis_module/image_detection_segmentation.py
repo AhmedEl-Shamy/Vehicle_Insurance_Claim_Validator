@@ -1,5 +1,9 @@
 from pathlib import Path
 import json
+import hashlib
+import tempfile
+import urllib.request
+from urllib.parse import urlparse, unquote
 from typing import List, Literal
 import cv2
 import numpy as np
@@ -1090,10 +1094,94 @@ class ImageDetectionSegmentation:
     # ========================
     # MAIN FUNCTION FOR FASTAPI
 
-    def extract_information(
+    @staticmethod
+    def _is_http_url(value) -> bool:
+        parsed = urlparse(str(value))
+        return parsed.scheme.lower() in ("http", "https") and bool(parsed.netloc)
+
+    @staticmethod
+    def _download_url_to_temp(image_url):
+        """Download one HTTP(S) image to a temporary local file for OpenCV/YOLO."""
+        parsed = urlparse(str(image_url))
+        original_name = Path(unquote(parsed.path)).name or "image"
+        suffix = Path(original_name).suffix.lower()
+        if suffix not in (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"):
+            suffix = ".jpg"
+        digest = hashlib.sha256(str(image_url).encode("utf-8")).hexdigest()[:12]
+        temp_dir = tempfile.TemporaryDirectory(prefix="claim_image_")
+        local_path = Path(temp_dir.name) / f"{digest}_{Path(original_name).stem[:40]}{suffix}"
+        try:
+            request = urllib.request.Request(
+                str(image_url),
+                headers={"User-Agent": "VehicleInsuranceClaimValidator/1.0"},
+            )
+            with urllib.request.urlopen(request, timeout=30) as response:
+                content_type = response.headers.get("Content-Type", "")
+                if content_type and not content_type.lower().startswith("image/"):
+                    raise ValueError(f"URL did not return an image (Content-Type: {content_type})")
+                content = response.read()
+            if not content:
+                raise ValueError("Downloaded image is empty.")
+            local_path.write_bytes(content)
+            return temp_dir, local_path, original_name
+        except Exception:
+            temp_dir.cleanup()
+            raise
+
+    def extract_information(self, image_path, output_dir="outputs") -> dict:
+        """Process one local image or HTTP(S) image URL."""
+        if self._is_http_url(image_path):
+            temp_dir, local_path, original_name = self._download_url_to_temp(image_path)
+            try:
+                result = self._extract_information_local(
+                    local_path, output_dir=output_dir, display_name=original_name
+                )
+                result["image"] = original_name
+                for detection in result.get("results", []):
+                    detection["image"] = original_name
+                return result
+            finally:
+                temp_dir.cleanup()
+        return self._extract_information_local(image_path, output_dir=output_dir)
+
+    def extract_information_batch(self, images, output_dir="outputs") -> dict:
+        """Process multiple local paths/URLs; keep per-image results and merge detections."""
+        if images is None:
+            image_list = []
+        elif isinstance(images, (str, Path)):
+            image_list = [images]
+        else:
+            image_list = [item for item in images if item is not None]
+
+        per_image_results = []
+        combined_results = []
+        for index, image in enumerate(image_list):
+            try:
+                result = self.extract_information(image, output_dir=output_dir)
+            except Exception as exc:
+                result = {"status": "ERROR", "image": str(image), "message": str(exc)}
+            per_image_results.append(result)
+            if result.get("status") == "SUCCESS":
+                for detection in result.get("results", []):
+                    combined_results.append(dict(detection))
+
+        successful = sum(r.get("status") == "SUCCESS" for r in per_image_results)
+        return {
+            "status": "SUCCESS" if successful == len(per_image_results) and successful > 0 else (
+                "PARTIAL_SUCCESS" if successful > 0 else "ERROR"
+            ),
+            "total_images": len(per_image_results),
+            "successful_images": successful,
+            "failed_images": len(per_image_results) - successful,
+            "per_image_results": per_image_results,
+            "results": combined_results,
+        }
+
+    def _extract_information_local(
         self,
         image_path,
-        output_dir="outputs"
+        output_dir="outputs",
+        display_name=None
     ) -> dict:
 
         """
@@ -1158,6 +1246,9 @@ class ImageDetectionSegmentation:
                     damages
                 )
             )
+            if display_name:
+                for item in final_json:
+                    item["image"] = display_name
 
              
             # 5. Output directory
@@ -1226,7 +1317,7 @@ class ImageDetectionSegmentation:
 
                     "status": "ERROR",
 
-                    "image": image_path.name,
+                    "image": display_name or image_path.name,
 
                     "annotated_image": str(
                         annotated_path
@@ -1251,7 +1342,7 @@ class ImageDetectionSegmentation:
 
                 "status": "SUCCESS",
 
-                "image": image_path.name,
+                "image": display_name or image_path.name,
 
                 "annotated_image": str(
                     annotated_path
@@ -1277,7 +1368,7 @@ class ImageDetectionSegmentation:
 
                 "status": "ERROR",
 
-                "image": image_path.name,
+                "image": display_name or image_path.name,
 
                 "message": str(e)
             }

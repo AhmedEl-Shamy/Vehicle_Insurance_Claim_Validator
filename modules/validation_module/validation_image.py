@@ -1,4 +1,8 @@
 from pathlib import Path
+import hashlib
+import tempfile
+import urllib.request
+from urllib.parse import urlparse, unquote
 
 import cv2
 import numpy as np
@@ -459,7 +463,85 @@ class ValidationImage:
     # MAIN FUNCTION
     # =====================================================
 
-    def extract_information(
+    @staticmethod
+    def _is_http_url(value) -> bool:
+        parsed = urlparse(str(value))
+        return parsed.scheme.lower() in ("http", "https") and bool(parsed.netloc)
+
+    @staticmethod
+    def _download_url_to_temp(image_url):
+        """Download one HTTP(S) image to a temporary local file for PIL/YOLO."""
+        parsed = urlparse(str(image_url))
+        original_name = Path(unquote(parsed.path)).name or "image"
+        suffix = Path(original_name).suffix.lower()
+        if suffix not in (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"):
+            suffix = ".jpg"
+        digest = hashlib.sha256(str(image_url).encode("utf-8")).hexdigest()[:12]
+        temp_dir = tempfile.TemporaryDirectory(prefix="claim_validation_")
+        local_path = Path(temp_dir.name) / f"{digest}_{Path(original_name).stem[:40]}{suffix}"
+        try:
+            request = urllib.request.Request(
+                str(image_url),
+                headers={"User-Agent": "VehicleInsuranceClaimValidator/1.0"},
+            )
+            with urllib.request.urlopen(request, timeout=30) as response:
+                content_type = response.headers.get("Content-Type", "")
+                if content_type and not content_type.lower().startswith("image/"):
+                    raise ValueError(f"URL did not return an image (Content-Type: {content_type})")
+                content = response.read()
+            if not content:
+                raise ValueError("Downloaded image is empty.")
+            local_path.write_bytes(content)
+            return temp_dir, local_path, original_name
+        except Exception:
+            temp_dir.cleanup()
+            raise
+
+    def extract_information(self, image_path):
+        """Validate one local image or HTTP(S) image URL."""
+        if self._is_http_url(image_path):
+            temp_dir, local_path, original_name = self._download_url_to_temp(image_path)
+            try:
+                result = self._extract_information_local(local_path)
+                result["image"] = original_name
+                return result
+            finally:
+                temp_dir.cleanup()
+        return self._extract_information_local(image_path)
+
+    def extract_information_batch(self, images) -> dict:
+        """Validate multiple local paths/URLs without stopping when one image fails."""
+        if images is None:
+            image_list = []
+        elif isinstance(images, (str, Path)):
+            image_list = [images]
+        else:
+            image_list = [item for item in images if item is not None]
+
+        results = []
+        for image in image_list:
+            try:
+                results.append(self.extract_information(image))
+            except Exception as exc:
+                results.append({
+                    "status": "ERROR",
+                    "image": str(image),
+                    "failure_reasons": [f"Image validation error: {exc}"],
+                    "message": str(exc),
+                })
+
+        valid_count = sum(str(item.get("status", "")).upper() == "VALID" for item in results)
+        return {
+            "status": "VALID" if valid_count == len(results) and valid_count > 0 else (
+                "PARTIAL_VALID" if valid_count > 0 else "INVALID"
+            ),
+            "total_images": len(results),
+            "valid_images": valid_count,
+            "invalid_images": len(results) - valid_count,
+            "per_image_results": results,
+        }
+
+    def _extract_information_local(
         self,
         image_path
     ):
