@@ -1,5 +1,4 @@
 from pathlib import Path
-import json
 import hashlib
 import tempfile
 import urllib.request
@@ -549,15 +548,16 @@ class ImageDetectionSegmentation:
         }
 
     def _extract_information_local(
-        self, image_path, output_dir="outputs", display_name=None
+        self, image_path, output_dir=None, display_name=None
     ) -> dict:
-        """Process one local image, save annotated image and per-image JSON."""
+        """Process one local image and return results without writing output files."""
         image_path = Path(image_path)
+        image_name = display_name or image_path.name
 
         if not image_path.exists():
             return {
                 "status": "ERROR",
-                "image": display_name or image_path.name,
+                "image": image_name,
                 "message": "Image not found.",
             }
 
@@ -573,47 +573,16 @@ class ImageDetectionSegmentation:
                 for item in final_json:
                     item["image"] = display_name
 
-            output_dir = Path(output_dir)
-
-            image_output = (
-                output_dir / "images" / f"{image_path.stem}_annotated.jpg"
-            )
-            annotated_path = self.create_annotated_image(
-                image_path, damages, image_output
-            )
-
-            json_output = output_dir / "json" / f"{image_path.stem}.json"
-            json_output.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(json_output, "w", encoding="utf-8") as file:
-                json.dump(final_json, file, indent=2, ensure_ascii=False)
-
-            json_validation = self.validate_json_file(json_output)
-            if not json_validation["valid"]:
-                return {
-                    "status": "ERROR",
-                    "image": display_name or image_path.name,
-                    "annotated_image": str(annotated_path),
-                    "json_file": str(json_output),
-                    "message": "JSON validation failed.",
-                    "json_validation": json_validation,
-                }
-
+            # Return structured data directly; do not save annotated images or JSON files.
             return {
                 "status": "SUCCESS",
-                "image": display_name or image_path.name,
-                "annotated_image": str(annotated_path),
-                "json_file": str(json_output),
-                "json_validation": {
-                    "valid": True,
-                    "message": "JSON file is valid.",
-                },
+                "image": image_name,
                 "results": final_json,
             }
 
         except Exception as exc:
             return {
                 "status": "ERROR",
-                "image": display_name or image_path.name,
+                "image": image_name,
                 "message": str(exc),
             }
