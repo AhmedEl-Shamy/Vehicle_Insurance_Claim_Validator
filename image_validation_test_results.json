@@ -1,0 +1,73 @@
+{
+  "status": "PARTIAL_VALID",
+  "total_images": 3,
+  "valid_images": 2,
+  "invalid_images": 1,
+  "per_image_results": [
+    {
+      "status": "VALID",
+      "image": "is-this-body-repair-estimate-fair-v0-gfk12my5zf6c1 (1).jpg",
+      "validation": {
+        "width": 1080,
+        "height": 1440,
+        "blur_score": 1604.59,
+        "brightness": 97.43,
+        "contrast": 53.9,
+        "resolution_ok": true,
+        "blur_ok": true,
+        "brightness_ok": true,
+        "contrast_ok": true,
+        "maniqa_score": 50.01,
+        "maniqa_ok": true,
+        "vehicle_detected": true,
+        "vehicle_count": 2,
+        "vehicle_confidence": 0.3761
+      },
+      "failure_reasons": []
+    },
+    {
+      "status": "VALID",
+      "image": "is-this-body-repair-estimate-fair-v0-lgly0my5zf6c1.jpg",
+      "validation": {
+        "width": 1080,
+        "height": 1440,
+        "blur_score": 2010.14,
+        "brightness": 98.21,
+        "contrast": 49.45,
+        "resolution_ok": true,
+        "blur_ok": true,
+        "brightness_ok": true,
+        "contrast_ok": true,
+        "maniqa_score": 38.1,
+        "maniqa_ok": true,
+        "vehicle_detected": true,
+        "vehicle_count": 1,
+        "vehicle_confidence": 0.2157
+      },
+      "failure_reasons": []
+    },
+    {
+      "status": "INVALID",
+      "image": "is-this-body-repair-estimate-fair-v0-n0x1sly5zf6c1jpg.webp",
+      "validation": {
+        "width": 1080,
+        "height": 1440,
+        "blur_score": 433.75,
+        "brightness": 112.48,
+        "contrast": 44.62,
+        "resolution_ok": true,
+        "blur_ok": true,
+        "brightness_ok": true,
+        "contrast_ok": true,
+        "maniqa_score": 26.6,
+        "maniqa_ok": true,
+        "vehicle_detected": false,
+        "vehicle_count": 0,
+        "vehicle_confidence": 0.0
+      },
+      "failure_reasons": [
+        "vehicle_presence"
+      ]
+    }
+  ]
+}
