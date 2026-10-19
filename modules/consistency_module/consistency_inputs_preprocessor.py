@@ -31,30 +31,19 @@ class ConsistencyInputsPreprocessor:
 
         return clear_parts, car_info
 
-
     @staticmethod
-    def image_preprocessing(image_json) -> list:
-        """Get clear damage parts from image JSON."""
-        if isinstance(image_json, str):
-            image_data = json.loads(image_json)
-        elif isinstance(image_json, dict):
-            image_data = image_json
-        else:
-            raise TypeError(
-                "image_json must be a JSON string or a dictionary."
-            )
+    def image_preprocessing(image_json: str) -> list:
+        "Get clear damage parts from image JSON"
 
-        detections = image_data.get("results", [])
+        d = json.loads(image_json)['results']
         parts = []
 
-        for item in detections:
-            part = item.get("affected_part")
-            if part:
-                parts.append(part)
+        for item in d:
+            part = item['affected_part']
+            parts.append(part)
 
         clear_parts = ConsistencyInputsPreprocessor.get_clear_parts(parts)
         return clear_parts
-
 
     @staticmethod
     def get_side(text: str, use_corner_codes: bool = False, driver_side: str = None):
