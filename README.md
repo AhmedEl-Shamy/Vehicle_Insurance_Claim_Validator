@@ -1,113 +1,156 @@
 # Vehicle Insurance Claim Validator
 
-An AI-powered multimodal system for **vehicle insurance claim validation and explainable fraud-risk assessment**.
+A multimodal AI system for **vehicle insurance claim validation and explainable fraud-risk assessment**.
 
-The system analyzes different types of claim evidence, including **vehicle damage images, user claim descriptions, police reports, and repair invoices/estimates**. Each type of evidence is processed by a dedicated AI module, and the extracted information is later compared to identify inconsistencies and potential risk indicators.
+The system reads four types of claim evidence: **vehicle damage images, user claim descriptions, repair invoices, and police reports**. Each type goes through its own AI pipeline. The outputs are compared across sources to find matches, missing details, and contradictions. Each claim gets a **Low, Medium, or High** risk level and an explainable report.
 
-## Project Overview
+The system is a **decision-support tool**. It does not replace human investigators.
 
-Insurance claims usually contain information from multiple sources. Reviewing these sources manually can be time-consuming and may make it difficult to identify contradictions between them.
+## Team
 
-This project aims to provide a unified system that automatically processes the available evidence, converts it into structured information, and performs cross-modal consistency analysis to support insurance investigators.
+- Natalie Monged Maurice
+- Mariam Anwer Mohammed
+- Ahmed Alshamy
+- Bassel Essa
 
-The system is designed as a **decision-support tool** and does not replace human investigators.
+**Supervisor:** Prof. Hazem Abbas, School of Computing, Queen's University
 
-## Main Components
+## Project Idea
 
-### 1. Vehicle Image Processing
+Insurance claims have evidence from many sources. Checking them by hand is slow and can miss errors. Most existing AI tools use one data type, or they act as black boxes with no clear reasoning. Also, generative AI can now create fake damage photos.
 
-The Vision Module analyzes submitted vehicle images to identify visible damage and the affected vehicle parts.
+This project solves these problems with:
 
-The pipeline includes:
+- An input validation layer, including AI-generated image detection
+- Four specialized extraction pipelines
+- Pairwise cross-modal consistency checks
+- A deterministic risk engine
+- An evidence-based report for the human reviewer
+- A web app with a user portal and an admin dashboard
 
-- Image quality validation
-- Vehicle damage detection
-- Vehicle-part segmentation
-- Damage-to-part matching
-- Damage severity estimation
+## System Layers
 
-The module uses trained **YOLOv11-based models** and produces structured JSON/CSV outputs containing information such as damage type, confidence, bounding box, affected part, and severity.
+### 1. Input Validation Layer
 
-### 2. User Claim Description
+Runs before any expensive AI step.
 
-The Claim Description Module processes free-text accident descriptions and extracts structured information such as:
+- Image checks: resolution, blur, brightness, contrast, perceptual quality, and vehicle presence
+- Synthetic image detection (Stable Diffusion traces)
+- Claim completeness and document readability checks
+- Invalid inputs are rejected or flagged for review
 
-- Vehicle make and model
-- Model year
-- Accident date and time
-- Damage description
-- Damaged parts
+### 2. Input Analysis Layer (4 pipelines)
 
-**Model:** Qwen2.5-1.5B-Instruct
+| Pipeline | Output |
+|---|---|
+| Vehicle images | Damage type, confidence, box, affected part, severity |
+| Claim description | Car info and damaged parts as validated JSON |
+| Invoice / repair estimate | Car info and repaired parts with operations |
+| Police report | Accident details, driver and vehicle info, damaged parts |
 
-The extracted information is generated as JSON and validated using a **Pydantic schema** to ensure that the output follows the required structure and data types.
+### 3. Cross-Modal Consistency Layer
 
-### 3. Police Report Processing
+The four JSON outputs are compared in **six pairs**: image–invoice, image–description, image–police, description–invoice, description–police, invoice–police.
 
-The Police Report Module processes police accident reports and extracts structured information from their visual layouts.
+For each pair:
 
-**Model:** Qwen2.5-VL-7B-Instruct
+1. Preprocess each source into a clean list of part names
+2. An LLM matches the parts of the two lists
+3. The answer is validated and retried if needed
+4. Code finds missing parts and checks car make, model, and year
+5. Code calculates a pairwise score
 
-PDF pages are converted into images so that the model can preserve the spatial structure of the original reports.
+The overall consistency score is the mean of the six pairwise scores.
 
-The module extracts information such as:
+### 4. Risk Analysis Layer
 
-- Accident details
-- Driver information
-- Vehicle information
-- Damaged parts
-- General damage areas
+A deterministic decision engine (TypeSafe JEV) uses the consistency results and the image signals (AI-image threat and vehicle detection).
 
-### 4. Invoice and Repair Estimate Processing
+| Risk | Conditions |
+|---|---|
+| **High** | High AI-image threat, visible ghost billing, consistency score < 0.60, or no vehicle detected |
+| **Medium** | Mild AI threat, low vehicle confidence, or consistency score 0.60 – 0.79 |
+| **Low** | No AI threat, vehicle confirmed, no ghost billing, and consistency score ≥ 0.80 |
 
-This module processes repair estimates and body shop invoices to extract structured financial and component-level information.
+If the engine fails, the claim defaults to **Medium** and goes to manual human review.
 
-**Model:** Gemini 3.6 Flash
+### 5. Explainable Report Layer
 
-The module uses high-resolution PDF rendering, spatial prompting, Pydantic schema validation, taxonomy normalization, and JSON-repair mechanisms to produce structured outputs.
+An LLM writes a Markdown report with five sections: executive summary, key findings, risk assessment, recommended next steps, and overall recommendation. The report keeps the risk level from the engine and separates risk indicators from confirmed fraud.
 
-### 5. Cross-Modal Consistency and Reasoning
+### 6. Human Review
 
-The outputs from the four processing modules are compared to identify:
-
-- Agreements between evidence sources
-- Contradictions
-- Missing evidence
-- Potential risk indicators
-
-The system evaluates consistency across the available evidence and produces a **Low, Medium, or High fraud-risk level** together with an explainable report.
+The investigator dashboard shows images, masks, structured claims, risk score, and the explanation. The investigator can approve, reject, or send the claim for further investigation.
 
 ## System Workflow
 
 ```text
-                    ┌─────────────────────┐
-                    │   Vehicle Images    │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │   Vision Module     │
-                    └──────────┬──────────┘
-                               │
-                               │
-┌──────────────────┐  ┌────────▼──────────┐  ┌──────────────────────┐
-│ Claim Description│  │ Structured        │  │ Police Reports      │
-│                  │  │ Evidence          │  │ + Invoices          │
-└────────┬─────────┘  └────────┬───────────┘  └──────────┬───────────┘
-         │                     │                         │
-         ▼                     │                         ▼
-┌──────────────────┐            │              ┌──────────────────────┐
-│ Claim NLP Module │            │              │ Document Modules     │
-└────────┬─────────┘            │              └──────────┬───────────┘
-         │                      │                         │
-         └──────────────────────┼─────────────────────────┘
-                                ▼
-                  ┌─────────────────────────┐
-                  │ Cross-Modal Consistency │
-                  │      & Reasoning        │
-                  └────────────┬────────────┘
-                               │
-                               ▼
-                  ┌─────────────────────────┐
-                  │  Risk Assessment &      │
-                  │  Explainable Report     │
-                  └─────────────────────────┘
+   Vehicle Images        Claim Description       Invoice (PDF)      Police Report (PDF)
+         │                      │                      │                    │
+         └──────────────────────┴──────────┬───────────┴────────────────────┘
+                                           ▼
+                            ┌─────────────────────────────┐
+                            │   Input Validation Layer    │
+                            │ quality · AI-image · format │
+                            └──────────────┬──────────────┘
+                                           ▼
+        ┌──────────────┬──────────────────┬─────────────────┬──────────────────┐
+        │ Image        │ Text             │ Invoice         │ Police Report    │
+        │ YOLOv11      │ Qwen2.5-1.5B     │ Gemini 3.6      │ Qwen2.5-VL-7B    │
+        └──────┬───────┴────────┬─────────┴────────┬────────┴─────────┬────────┘
+               └────────────────┴────────┬─────────┴──────────────────┘
+                                         ▼
+                        ┌──────────────────────────────┐
+                        │ Consistency Layer (6 pairs)  │
+                        └──────────────┬───────────────┘
+                                       ▼
+                        ┌──────────────────────────────┐
+                        │ Risk Analysis (TypeSafe JEV) │
+                        └──────────────┬───────────────┘
+                                       ▼
+                        ┌──────────────────────────────┐
+                        │ Explainable Report (Gemini)  │
+                        └──────────────┬───────────────┘
+                                       ▼
+                        ┌──────────────────────────────┐
+                        │ Human Review (Approve /      │
+                        │ Investigate / Reject)        │
+                        └──────────────────────────────┘
+```
+
+## Models Used
+
+| Layer | Task | Model |
+|---|---|---|
+| Validation | Image quality | MANIQA |
+| Validation | AI-generated image detection | Mandelli et al. detector (PoliMi) |
+| Validation / Vision | Vehicle presence | YOLOv11 |
+| Image pipeline | Damage detection | YOLOv11 (fine-tuned on CarDD) |
+| Image pipeline | Vehicle-part segmentation | YOLO11n-seg |
+| Claim description | Information extraction | Qwen2.5-1.5B-Instruct |
+| Police report | Document understanding | Qwen2.5-VL-7B-Instruct (4-bit) |
+| Invoice | Document understanding | Gemini 3.6 Flash |
+| Invoice | Fallback / validation | GPT-6 Luna (via OpenRouter) |
+| Consistency | Part matching | openai/gpt-oss-20b (via Groq) |
+| Risk analysis | Risk classification | TypeSafe JEV (`typesafe/jev-latest`) |
+| Report | Report generation | Gemini |
+
+## How to Run
+
+1. Install the packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Download and save the models by running the script:
+
+```bash
+python save_models.py
+```
+
+3. Start the server:
+
+```bash
+uvicorn main:app --reload
+```

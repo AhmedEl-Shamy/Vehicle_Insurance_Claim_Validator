@@ -1,3 +1,11 @@
 from modules.inputs_analysis_module.user_description_model import UserDescriptionModel
+from modules.inputs_analysis_module.police_report_model import PoliceReportExtractor
+from modules.inputs_analysis_module.image_detection_segmentation import ImageDetectionSegmentation
+from modules.report_generation_module.report_generation_module import ReportModule
+from modules.validation_module.validation_image import ValidationImage
 
+PoliceReportExtractor.save_model()
 UserDescriptionModel.save_model()
+ImageDetectionSegmentation.save_model()
+ReportModule.save_model()
+ValidationImage.save_model()
