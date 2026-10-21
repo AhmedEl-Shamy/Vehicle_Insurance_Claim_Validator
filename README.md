@@ -163,13 +163,14 @@ Launch each pipeline service on its respective GPU node or terminal instance (e.
 
 2- Expose & Copy Ngrok Links:
 Start an ngrok tunnel for each active microservice port and copy the generated public HTTPS links:
-
+```bash
 ngrok http 8001  # Example for Vision Service
-
+```
 3- Update .env File:
 Paste each active ngrok URL into your .env file under VALIDATION_SERVICE_URL, IMAGE_SERVICE_URL, TEXT_SERVICE_URL, INVOICE_SERVICE_URL, and POLICE_SERVICE_URL.
 
 4- Launch Main Orchestrator:
 Execute the microservice orchestrator script to run the claim validation pipeline across the active microservices:
+```bash
 python microservices_insurance_validator.py
-
+```
