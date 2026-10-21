@@ -136,7 +136,7 @@ The investigator dashboard shows images, masks, structured claims, risk score, a
 | Report | Report generation | Gemini |
 
 ## How to Run
-
+# Option A: Direct / Single-Class Execution
 1. Install the packages:
 
 ```bash
@@ -154,3 +154,22 @@ python save_models.py
 ```bash
 uvicorn main:app --reload
 ```
+
+# Option B: Decoupled Microservices Execution (Ngrok Orchestrated)
+Use this method when hosting individual model pipelines on dedicated compute nodes (e.g., Google Colab, GPU cloud instances, or distinct local ports) connected via ngrok tunnels.
+
+1- Start Each Microservice Individually:
+Launch each pipeline service on its respective GPU node or terminal instance (e.g., starting the FastAPI apps for the Vision model, Police Report model, Input Validation engine, Claim Description model, and Invoice model).
+
+2- Expose & Copy Ngrok Links:
+Start an ngrok tunnel for each active microservice port and copy the generated public HTTPS links:
+
+ngrok http 8001  # Example for Vision Service
+
+3- Update .env File:
+Paste each active ngrok URL into your .env file under VALIDATION_SERVICE_URL, IMAGE_SERVICE_URL, TEXT_SERVICE_URL, INVOICE_SERVICE_URL, and POLICE_SERVICE_URL.
+
+4- Launch Main Orchestrator:
+Execute the microservice orchestrator script to run the claim validation pipeline across the active microservices:
+python microservices_insurance_validator.py
+
