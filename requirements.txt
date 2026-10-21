@@ -17,6 +17,8 @@ pydantic
 json-repair
 fastapi
 uvicorn
+python-multipart
+pyngrok
 supabase
 requests
 python-dotenv
